@@ -3,29 +3,10 @@ import numpy as np
 import open3d as o3d
 from tqdm import tqdm
 import random
+from utils import append_coordinate, view_points, save_points, rotate_points
 
 # full model size: 2048
 # partial model size: 512
-
-# add coordinate point & color
-def append_coordinate(points, colors=None, ff=-0.1):
-    if colors is None:
-        colors = np.zeros_like(points)
-    
-    x_arr = [[x, 0, 0] for x in  np.linspace(0, ff, num=100)]
-    x_color = [[1, 0, 0]] * len(x_arr)
-
-    y_arr = [[0, y, 0] for y in  np.linspace(0, 0.1, num=100)]
-    y_color = [[0, 1, 0]] * len(y_arr)
-    
-    z_arr = [[0, 0, z] for z in  np.linspace(0, 0.1, num=100)]
-    z_color = [[0, 0, 1]] * len(z_arr)
-    
-    new_points = np.concatenate((points, x_arr, y_arr, z_arr))
-    colors = np.concatenate((colors,
-                             x_color, y_color, z_color))
-    
-    return new_points, colors
 
 # get distance from a
 def straight_dist(c, a, b):
@@ -57,7 +38,6 @@ def process_func(data):
     
     return min_idx
 
-
 def view_partial(points, camera_point):
     idx_arr = []
     pbar = tqdm(total=len(points))
@@ -82,19 +62,18 @@ def view_partial(points, camera_point):
     return partial_idx
     
 def main():
-    camera_point = np.array([[0, 0, 0.2]])    
+    # x y z
+    camera_point = np.array([[0, 0.2, 0.2]])    
     
     # read random selected point cloud
     pcd = o3d.io.read_point_cloud("./data/test7_4.pcd")
     points = np.asarray(pcd.points)
     
-    center = np.array([np.mean(points[:, 0]),
-                       np.mean(points[:, 1]),
-                       np.mean(points[:, 2])])
+    # rotate point cloud
+    points = rotate_points(points, 30, 30, 30)
     
-    center[2] += 0.4
-    
-    partial_idx = view_partial(points, center)
+    # get viewable partial point
+    partial_idx = view_partial(points, camera_point)
     partial_points = points[partial_idx]
     
     pcd = o3d.geometry.PointCloud()
@@ -113,17 +92,11 @@ def main():
     
     points, colors = append_coordinate(result_points, colors)
     
-    pcd.points = o3d.utility.Vector3dVector(points)
-    pcd.colors = o3d.utility.Vector3dVector(colors)
+    view_points(points, colors)
     
-    o3d.visualization.draw_geometries([pcd])
+    # save partial point cloud .pcd or .xyz
+    save_points('partial/partial.pcd', partial_points)
     
-    # save partial point cloud
-    partial_pcd = o3d.geometry.PointCloud()
-    partial_pcd.points = o3d.utility.Vector3dVector(partial_points)
-    o3d.io.write_point_cloud("partial/partial.pcd", partial_pcd)
-    o3d.io.write_point_cloud("partial/partial.xyz", partial_pcd)
-
     
 if __name__ == "__main__":
     main()
